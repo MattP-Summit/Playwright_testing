@@ -2,7 +2,7 @@
 pipeline {
     agent {
         docker {
-            image 'mcr.microsoft.com/playwright:v1.48.0-jammy'  // match your PW version
+            image 'mcr.microsoft.com/playwright:v1.55.0-jammy'  // match your PW version
             args '-u root'  // optional; avoids any permissions hiccups
         }
     }
