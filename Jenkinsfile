@@ -2,13 +2,15 @@
 pipeline {
     agent any
 
+    environment {
+        // Optionally define defaults (can be overridden by Jenkins job params)
+        PROJECT_NAME = env.PROJECT_NAME ?: 'Playwright_testing'
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                slackSend channel: '#deployments',
-                         message: "🚀 ${env.PROJECT_NAME} deployment started by ${env.BUILD_USER ?: 'System'}.\n" +
-                                 "Commit by: ${env.COMMIT_AUTHOR}" 
-
+                slackSend channel: '#deployments', message: "🚀 ${env.PROJECT_NAME} pipeline started by ${env.BUILD_USER ?: 'System'}\nCommit by: ${env.COMMIT_AUTHOR}"
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/main']],
@@ -20,36 +22,41 @@ pipeline {
             }
         }
 
-       stage('Install & Init Playwright') {
+        stage('Install Dependencies & Playwright') {
             steps {
-                sh '''
+                sh label: 'Install Node deps & browsers', script: '''
                     npm ci
-
-                    npm init playwright@latest --yes -- --tests-dir=tests --no-gha
-
                     npx playwright install --with-deps
                 '''
             }
         }
 
-        stage('Run Report Tests') {
+        stage('Run Playwright Tests') {
             steps {
                 script {
-                    slackSend channel: '#deployments',
-                             message: "🔄 Running PowerBI Report Tests for ${env.PROJECT_NAME}...\n" +
-                                     "Commit by: ${env.COMMIT_AUTHOR}"
-
-                    sh '''
-                        cd tests
-                        npm init playwright@latest --yes -- --tests-dir=tests --no-gha
+                    slackSend channel: '#deployments', message: "🔄 Running Playwright tests for ${env.PROJECT_NAME}\nCommit by: ${env.COMMIT_AUTHOR}"
+                    sh label: 'Execute tests', script: '''
+                        set -e
+                        npx playwright test --reporter=list
                     '''
-
-                    slackSend channel: '#deployments',
-                             message: "✅ ${env.PROJECT_NAME} deployment to STAGING environment completed.\n" +
-                                     "Image: ${imageTagFull}\n" +
-                                     "WebApp: ${webAppName}\n" +
-                                     "Commit by: ${env.COMMIT_AUTHOR}\n" +
-                                     "JIRA: ${env.JIRA_LINK}"
+                }
+            }
+            post {
+                always {
+                    // Archive HTML report if generated
+                    script {
+                        // Generate HTML report explicitly (stored under playwright-report)
+                        sh 'npx playwright show-report || true'
+                        archiveArtifacts artifacts: 'playwright-report/**', fingerprint: true, allowEmptyArchive: true
+                        publishHTML(target: [
+                            reportName: 'Playwright Report',
+                            reportDir: 'playwright-report',
+                            reportFiles: 'index.html',
+                            keepAll: true,
+                            alwaysLinkToLastBuild: true,
+                            allowMissing: true
+                        ])
+                    }
                 }
             }
         }
@@ -58,24 +65,18 @@ pipeline {
     post {
         always {
             script {
-
-                // Final notification
-                if (currentBuild.result == 'SUCCESS') {
-                        slackSend channel: '#deployments',
-                                 message: """
-                                    ✅ ${env.PROJECT_NAME} deployment pipeline completed successfully!     
-                                 """
-                    } else if (currentBuild.result == 'FAILURE') {
-                        slackSend channel: '#deployments',
-                                 message: """
-                                    ❌ ${env.PROJECT_NAME} deployment pipeline has failed.
-                                 """
-                    } else if (currentBuild.result == 'ABORTED') {
-                        slackSend channel: '#deployments',
-                                 message: "🚫 ${env.PROJECT_NAME} deployment pipeline has been aborted." +
-                    }
+                def status = currentBuild.result ?: 'SUCCESS'
+                if (status == 'SUCCESS') {
+                    slackSend channel: '#deployments', message: "✅ ${env.PROJECT_NAME} pipeline completed successfully"
+                } else if (status == 'FAILURE') {
+                    slackSend channel: '#deployments', message: "❌ ${env.PROJECT_NAME} pipeline failed"
+                } else if (status == 'ABORTED') {
+                    slackSend channel: '#deployments', message: "🚫 ${env.PROJECT_NAME} pipeline aborted"
+                } else {
+                    slackSend channel: '#deployments', message: "ℹ️ ${env.PROJECT_NAME} pipeline finished with status: ${status}"
                 }
             }
         }
     }
 }
+
