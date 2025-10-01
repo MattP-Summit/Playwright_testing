@@ -1,6 +1,11 @@
 // Jenkins pipeline definition
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.48.0-jammy'  // match your PW version
+            args '-u root'  // optional; avoids any permissions hiccups
+        }
+    }
 
     environment {
         // Declarative environment values must be static strings or credentials; use fallback logic later.
@@ -34,7 +39,7 @@ pipeline {
             steps {
                 sh label: 'Install Node deps & browsers', script: '''
                     npm ci
-                    npx playwright install --with-deps
+                    npx playwright install
                 '''
             }
         }
