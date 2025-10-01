@@ -10,6 +10,7 @@ pipeline {
     environment {
         // Declarative environment values must be static strings or credentials; use fallback logic later.
         PROJECT_NAME = 'Playwright_testing'
+        INTERNAL_APP_TO_API_KEY = credentials('INTERNAL_APP_TO_API_KEY')
     }
 
     stages {
