@@ -54,7 +54,7 @@ pipeline {
             }
         }
     }
-    
+
     post {
         always {
             script {
@@ -73,7 +73,7 @@ pipeline {
                     } else if (currentBuild.result == 'ABORTED') {
                         slackSend channel: '#deployments',
                                  message: "🚫 ${env.PROJECT_NAME} deployment pipeline has been aborted." +
-
+                    }
                 }
             }
         }
