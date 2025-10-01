@@ -53,7 +53,8 @@ pipeline {
                 }
             }
         }
-
+    }
+    
     post {
         always {
             script {
