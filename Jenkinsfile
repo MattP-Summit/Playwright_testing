@@ -3,14 +3,22 @@ pipeline {
     agent any
 
     environment {
-        // Optionally define defaults (can be overridden by Jenkins job params)
-        PROJECT_NAME = env.PROJECT_NAME ?: 'Playwright_testing'
+        // Declarative environment values must be static strings or credentials; use fallback logic later.
+        PROJECT_NAME = 'Playwright_testing'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                slackSend channel: '#deployments', message: "🚀 ${env.PROJECT_NAME} pipeline started by ${env.BUILD_USER ?: 'System'}\nCommit by: ${env.COMMIT_AUTHOR}"
+                script {
+                    // Ensure PROJECT_NAME picks up any passed parameter or env override at runtime
+                    if (env.PROJECT_NAME && env.PROJECT_NAME.trim()) {
+                        // keep the provided value
+                    } else {
+                        env.PROJECT_NAME = 'Playwright_testing'
+                    }
+                    slackSend channel: '#deployments', message: "🚀 ${env.PROJECT_NAME} pipeline started by ${env.BUILD_USER ?: 'System'}\nCommit by: ${env.COMMIT_AUTHOR}"
+                }
                 checkout([
                     $class: 'GitSCM',
                     branches: [[name: '*/main']],
